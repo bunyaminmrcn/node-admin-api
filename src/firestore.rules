@@ -1,0 +1,47 @@
+rules_version = "2";
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow only authenticated content owners access
+
+    function isSuperPrivilage(uid) {
+      let exist = exists(/databases/$(database)/documents/users/$(uid));
+      let role = (exist ? get(/databases/$(database)/documents/users/$(uid)).data.role : "Anon");
+      let authorized =  'SuperAdmin' == role;
+      return authorized;
+    }
+    function isAdminOrSuper(uid) {
+      let exist = exists(/databases/$(database)/documents/users/$(uid));
+      let role = (exist ? get(/databases/$(database)/documents/users/$(uid)).data.role : "Anon");
+      let authorized = (['Admin', 'SuperAdmin'].includes(role));
+      return authorized;
+    }
+    function inFriendList(uid, authorId) {
+      let exist = exists(/databases/$(database)/documents/users/$(uid));
+      let friendList = (exist ? get(/databases/$(database)/documents/users/$(uid)).data.friendList : []);
+      return friendList.includes(authorId) || isContentOwner(uid, authorId);
+    }
+    function isContentOwner(uid, authorId) {
+      return uid == authorId;
+    }
+    match /preferences/{userId}/{documents=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{document} {
+     allow read: if request.auth != null && isAdminOrSuper(request.auth.uid);
+     allow write: if request.auth != null && isSuperPrivilage(request.auth.uid);
+     allow list: if request.auth != null && isAdminOrSuper(request.auth.uid);
+   }
+    match /indexes/{document} {
+       allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+    }
+    match /posts/{document} {
+     allow read: if (resource.data != null && resource.data.public == true) || (request.auth != null && inFriendList(request.auth.uid, resource.data.authorId));
+     allow write: if request.auth != null && isContentOwner(request.auth.uid, resource.data.authorId);
+     allow list: if (resource.data != null && resource.data.public == true) || (request.auth != null && inFriendList(request.auth.uid, resource.data.authorId));
+
+     allow create: if request.auth != null && isContentOwner(request.auth.uid, request.resource.data.authorId);
+     allow update, delete: if request.auth != null && isContentOwner(request.auth.uid, resource.data.authorId);
+   }
+  }
+}

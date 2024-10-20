@@ -1,0 +1,1 @@
+export const postModelRequiredFields = ['image', 'thumb', 'tags']

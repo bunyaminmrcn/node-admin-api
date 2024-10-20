@@ -1,0 +1,15 @@
+src/node_modules/
+src/functions/node_modules/
+
+
+src/creds/fb-prod.json
+src/.env.production
+src/export/
+src/logs/
+
+*.log
+**/*.log
+
+data/
+letsencrypt/
+logs/
